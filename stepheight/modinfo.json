@@ -1,0 +1,15 @@
+{
+    "type": "code",
+    "modid": "increasedstepheight",
+    "name": "Increased Step Height",
+    "authors": [
+        "SiiMeR"
+    ],
+    "description": "Increases the step height from 0.6 to 1.2, so you can walk up blocks without having to press jump",
+    "version": "1.0.0",
+    "dependencies": {
+        "game": "1.19.7"
+    },
+    "RequiredOnServer": true,
+    "RequiredOnClient": true
+}
