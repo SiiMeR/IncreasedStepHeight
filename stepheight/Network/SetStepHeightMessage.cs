@@ -6,13 +6,10 @@ namespace stepheight.Network;
 public class SetStepHeightMessage
 {
     public float StepHeight { get; }
-    public bool IsInitialSync { get; }
 
 
     private SetStepHeightMessage() { }
 
-    public SetStepHeightMessage(float stepHeight, bool isInitialSync = false)
-    { StepHeight = stepHeight;
-        IsInitialSync = isInitialSync;
-    }
+    public SetStepHeightMessage(float stepHeight)
+    { StepHeight = stepHeight; }
 }

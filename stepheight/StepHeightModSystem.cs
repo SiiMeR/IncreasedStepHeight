@@ -9,11 +9,12 @@ namespace stepheight
 {
     public class StepHeightModSystem : ModSystem
     {
+        public const string IncreasedStepHeightAttributeKey = "IncreasedStepHeightEnabled";
+        
         public ICoreServerAPI ServerApi;
         public ICoreClientAPI ClientApi;
         public IClientNetworkChannel ClientNetworkChannel;
         public IServerNetworkChannel ServerNetworkChannel;
-        public bool IsEnabled;
         
         public override double ExecuteOrder() => 2;
 
@@ -22,8 +23,6 @@ namespace stepheight
             base.StartClientSide(api);
 
             ClientApi = api;
-            var config = ModConfig.ReadConfig(api);
-            IsEnabled = config.Enabled;
 
             ClientNetworkChannel = api.Network.RegisterChannel("increasedstepheight")
                 .RegisterMessageType<ToggleStepHeightMessage>()
@@ -32,34 +31,24 @@ namespace stepheight
 
             api.Input.RegisterHotKey("stepheight", "Toggle increased step height", GlKeys.I,
                 HotkeyType.CharacterControls, true);
-            api.Input.SetHotKeyHandler("stepheight", (_) => ToggleStepHeight(api));
+            api.Input.SetHotKeyHandler("stepheight", _ => ToggleStepHeight());
         }
 
         private void OnSetStepHeightMessage(SetStepHeightMessage packet)
         {
-            var behavior = ClientApi.World.Player.Entity.GetBehavior<EntityBehaviorControlledPhysics>();
+            var behavior = GetControlledPhysicsBehavior(ClientApi.World.Player);
             if (behavior == null)
             {
-                ClientApi.Logger.Debug($"{ClientApi.World.Player.PlayerUID} has no EntityBehaviorControlledPhysics");
                 return;
             }
-
+            
             behavior.stepHeight = packet.StepHeight;
-
-            if (packet.IsInitialSync)
-            {
-                ClientNetworkChannel.SendPacket(new ToggleStepHeightMessage(IsEnabled, true));
-            }
+            ClientApi.ShowChatMessage($"Set step height to {packet.StepHeight}");
         }
 
-        private bool ToggleStepHeight(ICoreClientAPI api)
+        private bool ToggleStepHeight()
         {
-            IsEnabled = !IsEnabled;
-            ClientNetworkChannel.SendPacket(new ToggleStepHeightMessage(IsEnabled));
-            ModConfig.WriteConfig(api, new ClientConfig{Enabled = IsEnabled});
-            
-            api.ShowChatMessage("Increased step height " + (IsEnabled ? "on": "off"));
-            
+            ClientNetworkChannel.SendPacket(new ToggleStepHeightMessage());
             return true;
         }
 
@@ -72,37 +61,44 @@ namespace stepheight
 
             api.Event.PlayerNowPlaying += (player) =>
             {
-                var behavior = player.Entity.GetBehavior<EntityBehaviorControlledPhysics>();
-                if (behavior == null)
-                {
-                    ServerApi.Logger.Debug($"{player.PlayerUID} has no EntityBehaviorControlledPhysics");
-                    return;
-                }
-
-                ServerNetworkChannel.SendPacket(new SetStepHeightMessage(behavior.stepHeight, true), player);
+                var stepHeight = GetStepHeight(player);
+                ServerNetworkChannel.SendPacket(new SetStepHeightMessage(stepHeight), player);
             };
         }
 
-        private void OnToggleStepHeightMessage(IServerPlayer fromplayer, ToggleStepHeightMessage packet)
+        private void OnToggleStepHeightMessage(IServerPlayer fromPlayer, ToggleStepHeightMessage packet)
         {
-            var behavior = fromplayer.Entity.GetBehavior<EntityBehaviorControlledPhysics>();
+            var currentValue = fromPlayer.Entity.WatchedAttributes.GetBool(IncreasedStepHeightAttributeKey);
+            fromPlayer.Entity.WatchedAttributes.SetBool(IncreasedStepHeightAttributeKey, !currentValue);
+                
+            var behavior = GetControlledPhysicsBehavior(fromPlayer);
             if (behavior == null)
             {
-                ServerApi.Logger.Debug($"{fromplayer.PlayerUID} has no EntityBehaviorControlledPhysics");
                 return;
             }
-
-            var stepHeight = Math.Clamp(packet.IsEnabled 
-                ? behavior.stepHeight + 0.6f 
-                : behavior.stepHeight - 0.6f, 0.6f, 2.4f);
             
+            var stepHeight = GetStepHeight(fromPlayer);
+
             behavior.stepHeight = stepHeight;
+            ServerNetworkChannel.SendPacket(new SetStepHeightMessage(stepHeight), fromPlayer);
+        }
 
-
-            if(!packet.IsInitialSync)
+        private EntityBehaviorControlledPhysics GetControlledPhysicsBehavior(IPlayer player)
+        {
+            var behavior = player.Entity.GetBehavior<EntityBehaviorControlledPhysics>();
+            if (behavior == null)
             {
-                ServerNetworkChannel.SendPacket(new SetStepHeightMessage(stepHeight), fromplayer);
+                ServerApi.Logger.Debug($"{player.PlayerUID} has no EntityBehaviorControlledPhysics");
+                return null;
             }
+
+            return behavior;
+        }
+
+        private float GetStepHeight(IPlayer player)
+        {
+            var isEnabled = player.Entity.WatchedAttributes.GetBool(IncreasedStepHeightAttributeKey);
+            return isEnabled ? 0.6f : 1.2f;
         }
     }
 }
