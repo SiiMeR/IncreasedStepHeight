@@ -6,7 +6,7 @@
         "SiiMeR"
     ],
     "description": "Increases the step height, so you can walk up blocks without having to press jump",
-    "version": "1.1.5",
+    "version": "1.2.0",
     "dependencies": {
         "game": "1.19.7"
     },

@@ -9,12 +9,14 @@ namespace stepheight
 {
     public class StepHeightModSystem : ModSystem
     {
-        public const string IncreasedStepHeightAttributeKey = "IncreasedStepHeightEnabled";
+        public const string IncreasedStepHeightAttributeKey = "IncreasedStepHeightValue";
         
         public ICoreServerAPI ServerApi;
         public ICoreClientAPI ClientApi;
         public IClientNetworkChannel ClientNetworkChannel;
         public IServerNetworkChannel ServerNetworkChannel;
+
+        public ServerConfig ServerConfig;
         
         public override double ExecuteOrder() => 2;
 
@@ -59,6 +61,8 @@ namespace stepheight
                 .RegisterMessageType<SetStepHeightMessage>()
                 .SetMessageHandler<ToggleStepHeightMessage>(OnToggleStepHeightMessage);
 
+            ServerConfig = ModConfig.ReadConfig(api);
+            
             api.Event.PlayerNowPlaying += (player) =>
             {
                 var stepHeight = GetStepHeight(player);
@@ -68,19 +72,19 @@ namespace stepheight
 
         private void OnToggleStepHeightMessage(IServerPlayer fromPlayer, ToggleStepHeightMessage packet)
         {
-            var currentValue = fromPlayer.Entity.WatchedAttributes.GetBool(IncreasedStepHeightAttributeKey);
-            fromPlayer.Entity.WatchedAttributes.SetBool(IncreasedStepHeightAttributeKey, !currentValue);
-                
+            var currentValue = fromPlayer.Entity.WatchedAttributes.GetFloat(IncreasedStepHeightAttributeKey, 0.6f);
+            var nextValue = GetNextStepHeight(currentValue, ServerConfig.DoubleBlockStepAllowed);
+            
+            fromPlayer.Entity.WatchedAttributes.SetFloat(IncreasedStepHeightAttributeKey, nextValue);
+            
             var behavior = GetControlledPhysicsBehavior(fromPlayer);
             if (behavior == null)
             {
                 return;
             }
             
-            var stepHeight = GetStepHeight(fromPlayer);
-
-            behavior.stepHeight = stepHeight;
-            ServerNetworkChannel.SendPacket(new SetStepHeightMessage(stepHeight), fromPlayer);
+            behavior.stepHeight = nextValue;
+            ServerNetworkChannel.SendPacket(new SetStepHeightMessage(nextValue), fromPlayer);
         }
 
         private EntityBehaviorControlledPhysics GetControlledPhysicsBehavior(IPlayer player)
@@ -97,8 +101,19 @@ namespace stepheight
 
         private float GetStepHeight(IPlayer player)
         {
-            var isEnabled = player.Entity.WatchedAttributes.GetBool(IncreasedStepHeightAttributeKey);
-            return isEnabled ? 0.6f : 1.2f;
+            return player.Entity.WatchedAttributes.GetFloat(IncreasedStepHeightAttributeKey, 0.6f);
+        }
+
+        private float GetNextStepHeight(float currentStepHeight, bool isDoubleBlockStepAllowed)
+        {
+            return currentStepHeight switch
+            {
+                0.6f => 1.2f,
+                1.2f when isDoubleBlockStepAllowed => 2.2f,
+                1.2f => 0.6f,
+                2.2f => 0.6f,
+                _ => 0.6f 
+            };
         }
     }
 }

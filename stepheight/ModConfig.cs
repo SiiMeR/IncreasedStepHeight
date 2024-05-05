@@ -5,11 +5,11 @@ namespace stepheight;
 
 public static class ModConfig
 {
-    private const string ConfigName = "StepHeightConfig.json";
+    private const string ConfigName = "StepHeightServerConfig.json";
 
-    public static ClientConfig ReadConfig(ICoreAPI api)
+    public static ServerConfig ReadConfig(ICoreAPI api)
     {
-        ClientConfig config;
+        ServerConfig config;
 
         try
         {
@@ -35,27 +35,27 @@ public static class ModConfig
         api.StoreModConfig<T>(config, ConfigName);
     }
     
-    private static ClientConfig LoadConfig(ICoreAPI api)
+    private static ServerConfig LoadConfig(ICoreAPI api)
     {
-        return api.LoadModConfig<ClientConfig>(ConfigName);
+        return api.LoadModConfig<ServerConfig>(ConfigName);
     }
 
     private static void GenerateConfig(ICoreAPI api)
     {
-        api.StoreModConfig(new ClientConfig(), ConfigName);
+        api.StoreModConfig(new ServerConfig(), ConfigName);
     }
 }
 
-public class ClientConfig
+public class ServerConfig
 {
-    public bool Enabled;
+    public bool DoubleBlockStepAllowed;
 
-    public ClientConfig()
+    public ServerConfig()
     {
     }
 
-    public ClientConfig(ClientConfig previousConfig)
+    public ServerConfig(ServerConfig previousConfig)
     {
-        Enabled = previousConfig.Enabled;
+        DoubleBlockStepAllowed = previousConfig.DoubleBlockStepAllowed;
     }
 }
